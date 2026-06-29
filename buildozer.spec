@@ -34,9 +34,6 @@ android.minapi = 24
 # 自动接受 SDK 许可证（CI 构建必需）
 android.accept_sdk_license = True
 
-# 跳过 SDK 在线更新（使用预装 SDK）
-android.skip_update = True
-
 # CPU 架构
 android.archs = arm64-v8a, armeabi-v7a
 

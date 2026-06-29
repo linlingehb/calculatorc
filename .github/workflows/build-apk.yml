@@ -3,19 +3,12 @@ name: Build Kivy APK with Buildozer
 on:
   push:
     branches: [main, master]
-  pull_request:
-    branches: [main, master]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 360
-
-    env:
-      # 使用 GitHub Runner 预装的 Android SDK/NDK（无需下载）
-      ANDROID_HOME: /usr/local/lib/android/sdk
-      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
 
     steps:
       - name: Checkout repository
@@ -28,55 +21,28 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            python3-pip python3-venv build-essential git zip unzip \
-            openjdk-17-jdk autoconf automake libtool libtool-bin pkg-config \
-            zlib1g-dev libncurses-dev libtinfo6 libffi-dev libssl-dev \
-            libsqlite3-dev libbz2-dev libreadline-dev libgdbm-dev \
-            libgdbm-compat-dev llvm liblzma-dev
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            build-essential git zip unzip openjdk-17-jdk \
+            autoconf automake libtool pkg-config \
+            zlib1g-dev libncurses-dev libffi-dev libssl-dev \
+            libsqlite3-dev libbz2-dev libreadline-dev liblzma-dev cmake
 
-      - name: Set up pre-installed Android SDK for Buildozer
-        run: |
-          # Buildozer 默认把 SDK/NDK 放在 ~/.buildozer/android/platform/
-          mkdir -p ~/.buildozer/android/platform
-
-          # 软链接预装的 SDK（相对于 ~/.buildozer 的路径会是 android-sdk）
-          if [ ! -e ~/.buildozer/android/platform/android-sdk ]; then
-            ln -sf /usr/local/lib/android/sdk ~/.buildozer/android/platform/android-sdk
-          fi
-
-          # 关键修复：buildozer 在 tools/bin/ 找 sdkmanager，但新版 SDK 在 cmdline-tools/latest/bin/
-          mkdir -p ~/.buildozer/android/platform/android-sdk/tools/bin
-          if [ ! -e ~/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager ]; then
-            CMDLINE=$(ls -d /usr/local/lib/android/sdk/cmdline-tools/*/bin/sdkmanager 2>/dev/null | head -1)
-            if [ -n "$CMDLINE" ]; then
-              ln -sf "$CMDLINE" ~/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager
-              echo "Linked sdkmanager: $CMDLINE -> tools/bin/sdkmanager"
-            fi
-          fi
-
-          # 软链接预装的 NDK
-          PRE_NDK=$(ls -d /usr/local/lib/android/sdk/ndk/*/ 2>/dev/null | sort -V | tail -1)
-          if [ -n "$PRE_NDK" ] && [ ! -e ~/.buildozer/android/platform/android-ndk-r28c ]; then
-            ln -sf "$PRE_NDK" ~/.buildozer/android/platform/android-ndk-r28c
-            echo "Using pre-installed NDK: $PRE_NDK"
-          fi
-
-          # 接受 SDK 许可
-          yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
-
-      - name: Cache Buildozer build directory
+      - name: Cache Buildozer (SDK/NDK/venv)
         uses: actions/cache@v4
         with:
-          path: .buildozer
-          key: ${{ runner.os }}-buildozer-v2-${{ hashFiles('buildozer.spec') }}
+          path: |
+            .buildozer
+            .venv
+          key: ${{ runner.os }}-buildozer-v3-${{ hashFiles('buildozer.spec') }}
           restore-keys: |
-            ${{ runner.os }}-buildozer-v2-
+            ${{ runner.os }}-buildozer-v3-
 
       - name: Create venv and install Buildozer/Cython
         run: |
-          python -m venv .venv
+          if [ ! -d .venv ]; then
+            python -m venv .venv
+          fi
           source .venv/bin/activate
           python -m pip install --upgrade pip
           pip install buildozer cython
