@@ -48,22 +48,42 @@ jobs:
           python -m pip install --upgrade pip
           pip install buildozer cython
 
+      - name: Setup Android SDK platform (trigger SDK download)
+        run: |
+          source .venv/bin/activate
+          # First run: let buildozer download SDK/NDK (will fail, that's expected)
+          buildozer -v android debug 2>&1 | tee /tmp/first_build.log || true
+
+      - name: Install Android API 33 platform
+        if: success() || failure()
+        run: |
+          SDK_ROOT="$HOME/.buildozer/android/platform/android-sdk"
+          echo "SDK root: $SDK_ROOT"
+          
+          # Find sdkmanager binary
+          SDKMGR=$(find "$SDK_ROOT/cmdline-tools" -name sdkmanager -type f 2>/dev/null | head -1)
+          if [ -z "$SDKMGR" ]; then
+            echo "ERROR: sdkmanager not found!"
+            ls -la "$SDK_ROOT"/ 2>/dev/null
+            exit 1
+          fi
+          echo "sdkmanager: $SDKMGR"
+          
+          # Accept SDK licenses
+          yes | "$SDKMGR" --sdk_root="$SDK_ROOT" --licenses > /dev/null 2>&1
+          
+          # Install API 33 platform and build tools
+          echo "Installing platforms;android-33..."
+          "$SDKMGR" --sdk_root="$SDK_ROOT" "platforms;android-33" "build-tools;33.0.0" --verbose < /dev/null
+          
+          # Verify
+          echo "Installed platforms:"
+          find "$SDK_ROOT/platforms" -maxdepth 1 -type d 2>/dev/null || echo "  (none found)"
+
       - name: Build Debug APK
         run: |
           source .venv/bin/activate
-          buildozer -v android debug 2>&1 | tee /tmp/build.log
-          exit_code=${PIPESTATUS[0]}
-          if [ $exit_code -ne 0 ] && grep -q "Requested API target.*is not available" /tmp/build.log; then
-            echo "::group::Installing missing Android SDK platform"
-            SDK_ROOT="$HOME/.buildozer/android/platform/android-sdk"
-            TOOLS_BIN=$(find "$SDK_ROOT/cmdline-tools" -name sdkmanager -type f 2>/dev/null | head -1)
-            yes | "$TOOLS_BIN" --sdk_root="$SDK_ROOT" "platforms;android-33" || true
-            echo "::endgroup::"
-            echo "Retrying buildozer..."
-            buildozer -v android debug
-          elif [ $exit_code -ne 0 ]; then
-            exit $exit_code
-          fi
+          buildozer -v android debug
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
