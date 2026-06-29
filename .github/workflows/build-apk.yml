@@ -59,22 +59,34 @@ jobs:
         run: |
           SDK_ROOT="$HOME/.buildozer/android/platform/android-sdk"
           echo "SDK root: $SDK_ROOT"
+          ls -la "$SDK_ROOT/"
           
-          # Find sdkmanager binary
-          SDKMGR=$(find "$SDK_ROOT/cmdline-tools" -name sdkmanager -type f 2>/dev/null | head -1)
+          # Extract cmdline-tools zip if present (buildozer may leave it zipped)
+          ZIP_FILE="$SDK_ROOT/commandlinetools-linux-6514223_latest.zip"
+          if [ -f "$ZIP_FILE" ]; then
+            echo "Extracting commandline tools..."
+            unzip -qo "$ZIP_FILE" -d "$SDK_ROOT/tmp_cmdline"
+            mkdir -p "$SDK_ROOT/cmdline-tools"
+            mv "$SDK_ROOT/tmp_cmdline/cmdline-tools"/* "$SDK_ROOT/cmdline-tools/" 2>/dev/null || \
+              mv "$SDK_ROOT/tmp_cmdline"/* "$SDK_ROOT/cmdline-tools/latest/" 2>/dev/null
+            rm -rf "$SDK_ROOT/tmp_cmdline"
+          fi
+          
+          # Find sdkmanager (check both cmdline-tools and tools paths)
+          SDKMGR=$(find "$SDK_ROOT" -name sdkmanager -type f 2>/dev/null | head -1)
           if [ -z "$SDKMGR" ]; then
             echo "ERROR: sdkmanager not found!"
-            ls -la "$SDK_ROOT"/ 2>/dev/null
+            find "$SDK_ROOT" -maxdepth 3 -type d 2>/dev/null
             exit 1
           fi
           echo "sdkmanager: $SDKMGR"
           
-          # Accept SDK licenses
-          yes | "$SDKMGR" --sdk_root="$SDK_ROOT" --licenses > /dev/null 2>&1
+          # Accept licenses
+          yes | "$SDKMGR" --sdk_root="$SDK_ROOT" --licenses 2>/dev/null || true
           
-          # Install API 33 platform and build tools
+          # Install API 33
           echo "Installing platforms;android-33..."
-          "$SDKMGR" --sdk_root="$SDK_ROOT" "platforms;android-33" "build-tools;33.0.0" --verbose < /dev/null
+          "$SDKMGR" --sdk_root="$SDK_ROOT" "platforms;android-33" "build-tools;33.0.0" < /dev/null
           
           # Verify
           echo "Installed platforms:"
