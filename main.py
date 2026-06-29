@@ -527,9 +527,11 @@ class CalculatorApp(App):
 
     def build(self):
         self.title = "科学计算器"
-        Window.size = (420, 750)
-        Window.minimum_width = 380
-        Window.minimum_height = 650
+        from kivy.utils import platform
+        if platform != "android":
+            Window.size = (420, 750)
+            Window.minimum_width = 380
+            Window.minimum_height = 650
         return CalculatorWidget()
 
 
