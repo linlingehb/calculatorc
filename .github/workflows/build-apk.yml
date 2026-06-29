@@ -1,0 +1,62 @@
+name: Build Kivy APK with Buildozer
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            python3-pip python3-venv build-essential git zip unzip \
+            openjdk-17-jdk autoconf automake libtool libtool-bin pkg-config \
+            zlib1g-dev libncurses-dev libtinfo6 libffi-dev libssl-dev \
+            libsqlite3-dev libbz2-dev libreadline-dev libgdbm-dev \
+            libgdbm-compat-dev llvm liblzma-dev xclip python3-virtualenv
+
+      - name: Cache Buildozer build directory
+        uses: actions/cache@v4
+        with:
+          path: .buildozer
+          key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
+          restore-keys: |
+            ${{ runner.os }}-buildozer-
+
+      - name: Create venv and install Buildozer/Cython
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          python -m pip install --upgrade pip
+          pip install buildozer cython
+
+      - name: Build Debug APK
+        run: |
+          source .venv/bin/activate
+          buildozer -v android debug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sci-calculator-apk
+          path: bin/*.apk
+          if-no-files-found: error
+
+      - name: List generated APK
+        run: ls -lh bin/*.apk
