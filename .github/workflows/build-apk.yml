@@ -26,7 +26,8 @@ jobs:
             build-essential git zip unzip openjdk-17-jdk \
             autoconf automake libtool pkg-config \
             zlib1g-dev libncurses-dev libffi-dev libssl-dev \
-            libsqlite3-dev libbz2-dev libreadline-dev liblzma-dev cmake
+            libsqlite3-dev libbz2-dev libreadline-dev liblzma-dev cmake \
+            libltdl-dev
 
       - name: Cache Buildozer (SDK/NDK/venv)
         uses: actions/cache@v4
@@ -34,9 +35,9 @@ jobs:
           path: |
             .buildozer
             .venv
-          key: ${{ runner.os }}-buildozer-v3-${{ hashFiles('buildozer.spec') }}
+          key: ${{ runner.os }}-buildozer-v4-${{ hashFiles('buildozer.spec') }}
           restore-keys: |
-            ${{ runner.os }}-buildozer-v3-
+            ${{ runner.os }}-buildozer-v4-
 
       - name: Create venv and install Buildozer/Cython
         run: |
