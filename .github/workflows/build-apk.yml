@@ -12,6 +12,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 360
 
+    env:
+      # 使用 GitHub Runner 预装的 Android SDK/NDK（无需下载）
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -29,15 +34,35 @@ jobs:
             openjdk-17-jdk autoconf automake libtool libtool-bin pkg-config \
             zlib1g-dev libncurses-dev libtinfo6 libffi-dev libssl-dev \
             libsqlite3-dev libbz2-dev libreadline-dev libgdbm-dev \
-            libgdbm-compat-dev llvm liblzma-dev xclip python3-virtualenv
+            libgdbm-compat-dev llvm liblzma-dev
+
+      - name: Set up pre-installed Android SDK for Buildozer
+        run: |
+          # Buildozer 默认把 SDK/NDK 放在 ~/.buildozer/android/platform/
+          mkdir -p ~/.buildozer/android/platform
+
+          # 软链接预装的 SDK
+          if [ ! -e ~/.buildozer/android/platform/android-sdk ]; then
+            ln -sf $ANDROID_HOME ~/.buildozer/android/platform/android-sdk
+          fi
+
+          # 软链接预装的 NDK（取最新版本）
+          PRE_NDK=$(ls -d $ANDROID_HOME/ndk/*/ 2>/dev/null | sort -V | tail -1)
+          if [ -n "$PRE_NDK" ] && [ ! -e ~/.buildozer/android/platform/android-ndk-r28c ]; then
+            ln -sf "$PRE_NDK" ~/.buildozer/android/platform/android-ndk-r28c
+            echo "Using pre-installed NDK: $PRE_NDK"
+          fi
+
+          # 接受 SDK 许可
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
 
       - name: Cache Buildozer build directory
         uses: actions/cache@v4
         with:
           path: .buildozer
-          key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
+          key: ${{ runner.os }}-buildozer-v2-${{ hashFiles('buildozer.spec') }}
           restore-keys: |
-            ${{ runner.os }}-buildozer-
+            ${{ runner.os }}-buildozer-v2-
 
       - name: Create venv and install Buildozer/Cython
         run: |
