@@ -41,20 +41,30 @@ jobs:
           # Buildozer 默认把 SDK/NDK 放在 ~/.buildozer/android/platform/
           mkdir -p ~/.buildozer/android/platform
 
-          # 软链接预装的 SDK
+          # 软链接预装的 SDK（相对于 ~/.buildozer 的路径会是 android-sdk）
           if [ ! -e ~/.buildozer/android/platform/android-sdk ]; then
-            ln -sf $ANDROID_HOME ~/.buildozer/android/platform/android-sdk
+            ln -sf /usr/local/lib/android/sdk ~/.buildozer/android/platform/android-sdk
           fi
 
-          # 软链接预装的 NDK（取最新版本）
-          PRE_NDK=$(ls -d $ANDROID_HOME/ndk/*/ 2>/dev/null | sort -V | tail -1)
+          # 关键修复：buildozer 在 tools/bin/ 找 sdkmanager，但新版 SDK 在 cmdline-tools/latest/bin/
+          mkdir -p ~/.buildozer/android/platform/android-sdk/tools/bin
+          if [ ! -e ~/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager ]; then
+            CMDLINE=$(ls -d /usr/local/lib/android/sdk/cmdline-tools/*/bin/sdkmanager 2>/dev/null | head -1)
+            if [ -n "$CMDLINE" ]; then
+              ln -sf "$CMDLINE" ~/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager
+              echo "Linked sdkmanager: $CMDLINE -> tools/bin/sdkmanager"
+            fi
+          fi
+
+          # 软链接预装的 NDK
+          PRE_NDK=$(ls -d /usr/local/lib/android/sdk/ndk/*/ 2>/dev/null | sort -V | tail -1)
           if [ -n "$PRE_NDK" ] && [ ! -e ~/.buildozer/android/platform/android-ndk-r28c ]; then
             ln -sf "$PRE_NDK" ~/.buildozer/android/platform/android-ndk-r28c
             echo "Using pre-installed NDK: $PRE_NDK"
           fi
 
           # 接受 SDK 许可
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
+          yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
 
       - name: Cache Buildozer build directory
         uses: actions/cache@v4
